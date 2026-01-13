@@ -2,15 +2,23 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>形狀數字認知教案產生器</title>
+    
+    <!-- 引入外部套件 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 PDF 產生必備套件 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
+        :root {
+            --a4-width: 794px;
+            --a4-height: 1123px;
+        }
+
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #f1f5f9;
@@ -22,8 +30,8 @@
 
         /* A4 紙張標準尺寸 (210mm @ 96dpi ≈ 794px, 297mm @ 96dpi ≈ 1123px) */
         .a4-page {
-            width: 794px;
-            height: 1123px;
+            width: var(--a4-width);
+            height: var(--a4-height);
             padding: 45px 60px;
             margin: 30px auto;
             background: white;
@@ -34,9 +42,10 @@
             flex-direction: column;
             page-break-after: always;
             border-radius: 2px;
+            overflow: hidden;
         }
 
-        /* 試卷標題區域：確保不換行 */
+        /* 標題與版面設定 */
         .header-title {
             font-size: 30pt;
             font-weight: 900;
@@ -56,7 +65,6 @@
             padding-bottom: 10px;
         }
 
-        /* 密碼表容器 */
         .rule-card {
             background-color: #fffbeb;
             border: 3.5px solid #000;
@@ -136,7 +144,7 @@
         }
 
         .btn-control {
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 0px rgba(0,0,0,0.1);
         }
         .btn-control:active {
@@ -144,26 +152,26 @@
             box-shadow: 0 2px 0px rgba(0,0,0,0.1);
         }
 
-        /* 下載中的遮罩 */
+        /* 讀取畫面 */
         #loading-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
+            background: rgba(15, 23, 42, 0.9);
             z-index: 9999;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             color: white;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
         }
 
-        /* 離屏渲染專用 */
+        /* 離屏擷取容器 - 優化相容性 */
         #offscreen-capture {
             position: fixed;
             top: 0;
             left: -10000px;
-            width: 794px;
+            width: var(--a4-width);
             z-index: -9999;
             pointer-events: none;
             opacity: 0;
@@ -175,7 +183,7 @@
             .a4-page { 
                 margin: 0 !important; 
                 box-shadow: none !important;
-                border-radius: 0;
+                border-radius: 0 !important;
             }
             @page { size: A4; margin: 0; }
         }
@@ -185,10 +193,12 @@
             .preview-wrapper {
                 transform: scale(calc(100vw / 840px));
                 transform-origin: top center;
-                padding-bottom: 20px;
+                margin-bottom: 20px;
             }
             #app-content {
-                height: calc(100vw * 1.42 * var(--page-count, 1) + 40px);
+                /* 動態調整容器高度以容納縮放內容 */
+                height: auto;
+                min-height: calc(100vw * 1.42 * var(--page-count, 1) + 60px);
             }
         }
     </style>
@@ -196,56 +206,59 @@
 <body>
 
     <div id="loading-overlay">
-        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-4"></div>
-        <p class="text-xl font-bold text-center px-6">正在產生高品質 PDF...<br><span class="text-sm font-normal text-gray-400 mt-2 block">正在執行像素級位移補償，請稍候</span></p>
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-6"></div>
+        <p class="text-xl font-bold text-center px-6 leading-relaxed">
+            正在生成高品質 PDF...<br>
+            <span class="text-sm font-normal text-slate-400 mt-2 block">正在執行像素級位移補償校正</span>
+        </p>
     </div>
 
-    <!-- 離屏擷取容器 -->
     <div id="offscreen-capture"></div>
 
     <!-- 操作面板 -->
-    <div class="no-print bg-white border-b-2 border-gray-200 sticky top-0 z-50 p-4 shadow-sm">
+    <div class="no-print bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 p-4 shadow-sm">
         <div class="max-w-6xl mx-auto flex flex-col gap-4">
             <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
-                <div class="flex items-center">
-                    <!-- 上方功能標題列改為：形狀數字認知教案產生器 -->
-                    <h1 class="text-xl md:text-2xl font-black text-gray-800 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">形狀數字認知教案產生器</h1>
+                <div class="flex items-center w-full lg:w-auto overflow-hidden">
+                    <h1 class="text-xl md:text-2xl font-black text-slate-800 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                        形狀數字認知教案產生器
+                    </h1>
                 </div>
 
-                <div class="flex flex-wrap justify-center items-center gap-4">
-                    <div class="flex items-center bg-blue-50 rounded-xl p-1.5 border-2 border-blue-100">
+                <div class="flex flex-wrap justify-center items-center gap-3">
+                    <div class="flex items-center bg-blue-50 rounded-2xl p-1.5 border border-blue-100 shadow-inner">
                         <span class="px-2 text-xs font-black text-blue-400">頁數</span>
-                        <button onclick="updatePageCount(-1)" class="w-10 h-10 bg-white border-2 border-blue-200 rounded-lg flex items-center justify-center text-xl btn-control">➖</button>
+                        <button onclick="updatePageCount(-1)" class="w-10 h-10 bg-white border border-blue-200 rounded-xl flex items-center justify-center text-xl btn-control">➖</button>
                         <span id="pageCountLabel" class="w-10 text-center text-xl font-black text-blue-700">1</span>
-                        <button onclick="updatePageCount(1)" class="w-10 h-10 bg-white border-2 border-blue-200 rounded-lg flex items-center justify-center text-xl btn-control">➕</button>
+                        <button onclick="updatePageCount(1)" class="w-10 h-10 bg-white border border-blue-200 rounded-xl flex items-center justify-center text-xl btn-control">➕</button>
                     </div>
 
-                    <div class="flex items-center bg-orange-50 rounded-xl p-1.5 border-2 border-orange-100">
+                    <div class="flex items-center bg-orange-50 rounded-2xl p-1.5 border border-orange-100 shadow-inner">
                         <span class="px-2 text-xs font-black text-orange-400">規則</span>
-                        <button onclick="updateRuleCount(-1)" class="w-10 h-10 bg-white border-2 border-orange-200 rounded-lg flex items-center justify-center text-xl btn-control">➖</button>
+                        <button onclick="updateRuleCount(-1)" class="w-10 h-10 bg-white border border-orange-200 rounded-xl flex items-center justify-center text-xl btn-control">➖</button>
                         <span id="ruleCountLabel" class="w-10 text-center text-xl font-black text-orange-700">8</span>
-                        <button onclick="updateRuleCount(1)" class="w-10 h-10 bg-white border-2 border-orange-200 rounded-lg flex items-center justify-center text-xl btn-control">➕</button>
+                        <button onclick="updateRuleCount(1)" class="w-10 h-10 bg-white border-2 border-orange-200 rounded-xl flex items-center justify-center text-xl btn-control">➕</button>
                     </div>
 
                     <div class="flex gap-2">
-                        <button onclick="downloadPDF()" class="bg-blue-600 text-white px-4 md:px-6 py-3 rounded-xl font-black text-base md:text-lg shadow-lg hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                        <button onclick="downloadPDF()" class="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black text-base md:text-lg shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
                             📥 下載 PDF
                         </button>
-                        <button onclick="window.print()" class="bg-gray-100 text-gray-700 border-2 border-gray-200 px-4 md:px-6 py-3 rounded-xl font-black text-base md:text-lg shadow hover:bg-white transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                        <button onclick="window.print()" class="bg-slate-100 text-slate-700 border border-slate-200 px-5 py-3 rounded-2xl font-black text-base md:text-lg shadow hover:bg-white transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
                             🖨️ 列印
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-4 border-t pt-3">
-                <label class="flex items-center gap-3 cursor-pointer p-1.5 hover:bg-gray-50 rounded-lg transition-colors">
-                    <input type="checkbox" id="showAnswers" onchange="render()" class="w-6 h-6 rounded text-blue-600 border-2 border-gray-300">
-                    <span class="text-lg font-bold text-gray-700">顯示參考答案</span>
+            <div class="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-3">
+                <label class="flex items-center gap-3 cursor-pointer p-1.5 hover:bg-slate-50 rounded-xl transition-colors select-none">
+                    <input type="checkbox" id="showAnswers" onchange="render()" class="w-6 h-6 rounded-lg text-blue-600 border-slate-300 focus:ring-blue-500">
+                    <span class="text-lg font-bold text-slate-700">顯示參考答案</span>
                 </label>
                 
-                <button onclick="initData()" class="text-sm font-black text-blue-600 bg-blue-50 px-4 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
-                    🔄 重新生成題目
+                <button onclick="initData()" class="text-sm font-black text-blue-600 bg-blue-50 px-5 py-2 rounded-xl hover:bg-blue-100 transition-colors">
+                    🔄 重新生成隨機題目
                 </button>
             </div>
         </div>
@@ -277,7 +290,7 @@
         };
 
         function updatePageCount(v) {
-            state.pageCount = Math.max(1, Math.min(10, state.pageCount + v));
+            state.pageCount = Math.max(1, Math.min(20, state.pageCount + v));
             document.getElementById('pageCountLabel').innerText = state.pageCount;
             document.documentElement.style.setProperty('--page-count', state.pageCount);
             initData();
@@ -350,11 +363,11 @@
                         </div>
                     </div>
 
-                    <div class="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center text-gray-400 font-black">
-                        <div class="flex items-center gap-2 text-blue-300 text-xs">
-                            每天練習，頭腦更靈活！
+                    <div class="mt-2 pt-2 border-t border-slate-100 flex justify-between items-center text-slate-400 font-bold">
+                        <div class="flex items-center gap-2 text-blue-300 text-xs uppercase tracking-wider">
+                            KEEP TRAINING, KEEP SHARP!
                         </div>
-                        <div class="bg-gray-100 px-3 py-1 rounded-full text-xs text-gray-500 pdf-footer-page"><span>PAGE ${pIdx + 1}</span></div>
+                        <div class="bg-slate-50 px-3 py-1 rounded-full text-xs text-slate-400 border border-slate-100 pdf-footer-page"><span>PAGE ${pIdx + 1}</span></div>
                     </div>
                 </div>
             `;
@@ -383,11 +396,14 @@
                 const mm2Up = '-7.56px';   // 2mm 補償
                 
                 for (let i = 0; i < state.pages.length; i++) {
+                    // 1. 在隔離環境渲染
                     offscreen.innerHTML = getPageHTML(state.pages[i], i, showAnswers);
                     const targetEl = offscreen.firstElementChild;
 
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    // 2. 增加等待時間確保 DOM 與字體完全就緒
+                    await new Promise(resolve => setTimeout(resolve, 500));
 
+                    // 3. 擷取
                     const canvas = await html2canvas(targetEl, {
                         scale: 3, 
                         useCORS: true,
@@ -397,25 +413,22 @@
                         width: 794,
                         height: 1123,
                         onclone: (clonedDoc) => {
-                            // 1. 數字：向上移動 3mm
+                            // 執行 PDF 專屬位置校正
                             clonedDoc.querySelectorAll('.pdf-n-fix').forEach(el => {
                                 el.style.display = 'inline-block';
                                 el.style.transform = `translateY(${mm3Up})`;
                             });
 
-                            // 2. 指示文字串：向上移動 2mm
                             clonedDoc.querySelectorAll('.pdf-text-fix span').forEach(el => {
                                 el.style.display = 'inline-block';
                                 el.style.transform = `translateY(${mm2Up})`;
                             });
 
-                            // 3. 問號 (?)：向上移動 2mm
                             clonedDoc.querySelectorAll('.pdf-q-fix span').forEach(el => {
                                 el.style.display = 'inline-block';
                                 el.style.transform = `translateY(${mm2Up})`;
                             });
 
-                            // 頁碼補償
                             clonedDoc.querySelectorAll('.pdf-footer-page span').forEach(el => {
                                 el.style.display = 'inline-block';
                                 el.style.transform = 'translateY(-4px)';
@@ -438,7 +451,7 @@
                     offscreen.innerHTML = '';
                 }
 
-                pdf.save(`教案_${new Date().getTime()}.pdf`);
+                pdf.save(`認知教案_${new Date().toISOString().split('T')[0]}.pdf`);
             } catch (error) {
                 console.error("PDF generation failed:", error);
                 alert("下載失敗。建議使用「列印」功能並選擇「另存為 PDF」。");
@@ -447,7 +460,10 @@
             }
         }
 
-        window.onload = initData;
+        // 頁面初始化
+        window.onload = () => {
+            initData();
+        };
     </script>
 </body>
 </html>
