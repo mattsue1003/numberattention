@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大腦體操：形狀數字轉換訓練</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 PDF 產生必備套件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f1f5f9;
+            -webkit-font-smoothing: antialiased;
+            margin: 0;
+            padding: 0;
+            color: #1e293b;
+        }
+
+        /* A4 紙張標準尺寸 */
+        .a4-page {
+            width: 794px;
+            height: 1123px;
+            padding: 45px 60px;
+            margin: 30px auto;
+            background: white;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            page-break-after: always;
+            border-radius: 2px;
+        }
+
+        /* 標題區域 */
+        .header-title {
+            font-size: 30pt;
+            font-weight: 900;
+            color: #000;
+            line-height: 1.1;
+            white-space: nowrap; 
+            margin-bottom: 8px;
+        }
+
+        .header-subtitle {
+            font-size: 15pt;
+            font-weight: 700;
+            color: #475569;
+            letter-spacing: 0.1em;
+            white-space: nowrap;
+            line-height: 1.2;
+            padding-bottom: 8px;
+        }
+
+        /* 密碼表容器 */
+        .rule-card {
+            background-color: #fffbeb;
+            border: 3.5px solid #000;
+            border-radius: 2.2rem;
+            padding: 22px;
+            margin-bottom: 25px;
+            box-shadow: 8px 8px 0px #000;
+            width: 100%;
+        }
+
+        .rule-title-tag {
+            background-color: #000;
+            color: #fff;
+            padding: 8px 30px;
+            border-radius: 9999px;
+            font-size: 16pt;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            min-height: 45px;
+        }
+
+        .number-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .shape-icon-large {
+            width: 48px;
+            height: 48px;
+            stroke: #000;
+            fill: none;
+            stroke-width: 3.5;
+            margin-bottom: 10px;
+        }
+
+        .shape-icon-small {
+            width: 38px;
+            height: 38px;
+            stroke: #333;
+            fill: none;
+            stroke-width: 3;
+            margin-bottom: 6px;
+        }
+
+        /* 恢復預覽畫面置中，不包含位移補償 */
+        .number-box {
+            width: 54px;
+            height: 54px;
+            border: 3.5px solid #000;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28pt;
+            font-weight: 900;
+            background-color: #fff;
+            line-height: 1;
+        }
+
+        .answer-box {
+            width: 48px;
+            height: 48px;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24pt;
+            font-weight: 900;
+            background-color: #f8fafc;
+            line-height: 1;
+        }
+
+        .btn-control {
+            transition: all 0.2s;
+            box-shadow: 0 4px 0px rgba(0,0,0,0.1);
+        }
+        .btn-control:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0px rgba(0,0,0,0.1);
+        }
+
+        /* 下載中的遮罩 */
+        #loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            backdrop-filter: blur(4px);
+        }
+
+        /* 離屏渲染專用 */
+        #offscreen-capture {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 794px;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .a4-page { 
+                margin: 0 !important; 
+                box-shadow: none !important;
+                border-radius: 0;
+            }
+            @page { size: A4; margin: 0; }
+        }
+
+        /* 手機預覽顯示縮放 */
+        @media (max-width: 800px) {
+            .preview-wrapper {
+                transform: scale(calc(100vw / 820px));
+                transform-origin: top center;
+                padding-bottom: 20px;
+            }
+            #app-content {
+                height: calc(100vw * 1.42 * var(--page-count, 1) + 40px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-4"></div>
+        <p class="text-xl font-bold">正在優化佈局並產生 PDF...</p>
+        <p class="text-gray-400 mt-2 text-sm">此過程將自動校正 PDF 位置，請稍候</p>
+    </div>
+
+    <!-- 離屏擷取容器 -->
+    <div id="offscreen-capture"></div>
+
+    <!-- 操作面板 -->
+    <div class="no-print bg-white border-b-2 border-gray-200 sticky top-0 z-50 p-4 shadow-sm">
+        <div class="max-w-5xl mx-auto flex flex-col gap-4">
+            <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">🧠</span>
+                    <h1 class="text-2xl font-black text-gray-800 tracking-tight">形狀數字認知教案產生器</h1>
+                </div>
+
+                <div class="flex flex-wrap justify-center items-center gap-4">
+                    <div class="flex items-center bg-blue-50 rounded-xl p-1.5 border-2 border-blue-100">
+                        <span class="px-2 text-xs font-black text-blue-400">頁數</span>
+                        <button onclick="updatePageCount(-1)" class="w-10 h-10 bg-white border-2 border-blue-200 rounded-lg flex items-center justify-center text-xl btn-control">➖</button>
+                        <span id="pageCountLabel" class="w-10 text-center text-xl font-black text-blue-700">1</span>
+                        <button onclick="updatePageCount(1)" class="w-10 h-10 bg-white border-2 border-blue-200 rounded-lg flex items-center justify-center text-xl btn-control">➕</button>
+                    </div>
+
+                    <div class="flex items-center bg-orange-50 rounded-xl p-1.5 border-2 border-orange-100">
+                        <span class="px-2 text-xs font-black text-orange-400">規則數</span>
+                        <button onclick="updateRuleCount(-1)" class="w-10 h-10 bg-white border-2 border-orange-200 rounded-lg flex items-center justify-center text-xl btn-control">➖</button>
+                        <span id="ruleCountLabel" class="w-10 text-center text-xl font-black text-orange-700">8</span>
+                        <button onclick="updateRuleCount(1)" class="w-10 h-10 bg-white border-2 border-orange-200 rounded-lg flex items-center justify-center text-xl btn-control">➕</button>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="downloadPDF()" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-lg shadow-lg hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-2">
+                            📥 下載高品質 PDF
+                        </button>
+                        <button onclick="window.print()" class="bg-gray-100 text-gray-700 border-2 border-gray-200 px-6 py-3 rounded-xl font-black text-lg shadow hover:bg-white transition-all active:scale-95 flex items-center gap-2">
+                            🖨️ 列印
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-4 border-t pt-3">
+                <label class="flex items-center gap-3 cursor-pointer p-1.5 hover:bg-gray-50 rounded-lg transition-colors">
+                    <input type="checkbox" id="showAnswers" onchange="render()" class="w-6 h-6 rounded text-blue-600 border-2 border-gray-300">
+                    <span class="text-lg font-bold text-gray-700">顯示參考答案</span>
+                </label>
+                
+                <button onclick="initData()" class="text-sm font-black text-blue-600 bg-blue-50 px-4 py-1.5 rounded-lg hover:bg-blue-100">
+                    🔄 重新生成題目
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 教案預覽內容 -->
+    <div id="app-content" class="preview-wrapper">
+        <!-- JS 動態生成 -->
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+
+        const SHAPES = [
+            { id: 'c', svg: '<circle cx="25" cy="25" r="20" />' },
+            { id: 's', svg: '<rect x="7" y="7" width="36" height="36" />' },
+            { id: 't', svg: '<path d="M25 5 L45 42 L5 42 Z" />' },
+            { id: 'st', svg: '<path d="M25 5 L31 18 L45 20 L35 30 L38 44 L25 37 L12 44 L15 30 L5 20 L19 18 Z" />' },
+            { id: 'h', svg: '<path d="M25 45 C10 35 2 25 2 15 A10 10 0 0 1 22 10 L25 13 L28 10 A10 10 0 0 1 48 15 C48 25 40 35 25 45 Z" />' },
+            { id: 'd', svg: '<path d="M25 5 L45 25 L25 45 L5 25 Z" />' },
+            { id: 'p', svg: '<path d="M25 5 L45 20 L38 44 L12 44 L5 20 Z" />' },
+            { id: 'hx', svg: '<path d="M25 5 L43 15 L43 35 L25 45 L7 35 L7 15 Z" />' }
+        ];
+
+        let state = {
+            pageCount: 1,
+            ruleCount: 8,
+            pages: []
+        };
+
+        function updatePageCount(v) {
+            state.pageCount = Math.max(1, Math.min(10, state.pageCount + v));
+            document.getElementById('pageCountLabel').innerText = state.pageCount;
+            document.documentElement.style.setProperty('--page-count', state.pageCount);
+            initData();
+        }
+
+        function updateRuleCount(v) {
+            state.ruleCount = Math.max(3, Math.min(8, state.ruleCount + v));
+            document.getElementById('ruleCountLabel').innerText = state.ruleCount;
+            initData();
+        }
+
+        function initData() {
+            state.pages = [];
+            for (let i = 0; i < state.pageCount; i++) {
+                const shuffled = [...SHAPES].sort(() => Math.random() - 0.5);
+                const rule = shuffled.slice(0, state.ruleCount).map((s, idx) => ({ ...s, number: idx + 1 }));
+                const problems = Array.from({ length: 40 }).map(() => rule[Math.floor(Math.random() * rule.length)]);
+                state.pages.push({ rule, problems });
+            }
+            render();
+        }
+
+        function getPageHTML(page, pIdx, showAnswers) {
+            return `
+                <div class="a4-page">
+                    <div class="flex justify-between items-end border-b-[6px] border-black pb-2 mb-4">
+                        <div class="flex-grow">
+                            <div class="header-title tracking-tight">形狀數字轉換訓練</div>
+                            <div class="header-subtitle">增強大腦反應力與專注力</div>
+                        </div>
+                        <div class="text-right text-lg font-bold space-y-1 mb-1 shrink-0 ml-4">
+                            <p>姓名：_______________</p>
+                            <p>日期：20____/____/____</p>
+                        </div>
+                    </div>
+
+                    <div class="rule-card">
+                        <div class="flex justify-center">
+                            <div class="rule-title-tag">🔑 這是今天的對應密碼表</div>
+                        </div>
+                        <div class="flex justify-center gap-5 flex-nowrap overflow-hidden pt-2">
+                            ${page.rule.map(item => `
+                                <div class="number-container">
+                                    <svg viewBox="0 0 50 50" class="shape-icon-large">${item.svg}</svg>
+                                    <div class="number-box"><span>${item.number}</span></div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="flex-grow">
+                        <p class="text-xl font-black mb-5 flex items-center gap-3">
+                            <span class="bg-red-500 text-white w-9 h-9 flex items-center justify-center rounded-xl text-lg shadow-md">?</span> 
+                            請看圖形，在底下的框框填寫正確數字：
+                        </p>
+                        <div class="grid grid-cols-8 gap-y-7 gap-x-5 px-2">
+                            ${page.problems.map(p => `
+                                <div class="number-container">
+                                    <svg viewBox="0 0 50 50" class="shape-icon-small">${p.svg}</svg>
+                                    <div class="answer-box">
+                                        ${showAnswers ? `<span class="text-red-600 font-black"><span>${p.number}</span></span>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center text-gray-400 font-black">
+                        <div class="flex items-center gap-2 text-blue-300 text-xs">
+                            <span class="text-lg">🧠</span> 每天練習，頭腦更靈活！
+                        </div>
+                        <div class="bg-gray-100 px-3 py-1 rounded-full text-xs text-gray-500 pdf-footer-page">PAGE ${pIdx + 1}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const container = document.getElementById('app-content');
+            const showAnswers = document.getElementById('showAnswers').checked;
+            container.innerHTML = '';
+            state.pages.forEach((page, pIdx) => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = getPageHTML(page, pIdx, showAnswers);
+                container.appendChild(tempDiv.firstElementChild);
+            });
+        }
+
+        async function downloadPDF() {
+            const overlay = document.getElementById('loading-overlay');
+            const offscreen = document.getElementById('offscreen-capture');
+            const showAnswers = document.getElementById('showAnswers').checked;
+            overlay.style.display = 'flex';
+            
+            try {
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const offsetValue = '-11.34px'; // 3mm 補償
+                
+                for (let i = 0; i < state.pages.length; i++) {
+                    offscreen.innerHTML = getPageHTML(state.pages[i], i, showAnswers);
+                    const targetEl = offscreen.firstElementChild;
+
+                    // html2canvas 擷取
+                    const canvas = await html2canvas(targetEl, {
+                        scale: 3, 
+                        useCORS: true,
+                        logging: false,
+                        backgroundColor: '#ffffff',
+                        width: 794,
+                        height: 1123,
+                        onclone: (clonedDoc) => {
+                            // 在擷取快照中強制修正 PDF 專用的位移補償
+                            // 修正標籤位置
+                            const tags = clonedDoc.querySelectorAll('.rule-title-tag');
+                            tags.forEach(tag => {
+                                tag.style.display = 'flex';
+                                tag.style.alignItems = 'center';
+                                tag.style.justifyContent = 'center';
+                                tag.style.lineHeight = '0';
+                                tag.style.transform = `translateY(${offsetValue})`;
+                            });
+
+                            // 修正數字位置
+                            const numSpans = clonedDoc.querySelectorAll('.number-box span, .answer-box span');
+                            numSpans.forEach(span => {
+                                span.style.display = 'inline-block';
+                                span.style.transform = `translateY(${offsetValue})`;
+                            });
+
+                            // 修正頁碼位置
+                            const footerPages = clonedDoc.querySelectorAll('.pdf-footer-page');
+                            footerPages.forEach(fp => {
+                                fp.style.display = 'inline-flex';
+                                fp.style.alignItems = 'center';
+                                fp.style.justifyContent = 'center';
+                                fp.style.transform = `translateY(${offsetValue})`;
+                            });
+
+                            // 確保方格容器屬性穩定
+                            const boxes = clonedDoc.querySelectorAll('.number-box, .answer-box');
+                            boxes.forEach(box => {
+                                box.style.display = 'flex';
+                                box.style.alignItems = 'center';
+                                box.style.justifyContent = 'center';
+                                box.style.lineHeight = '0';
+                            });
+                        }
+                    });
+
+                    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+                    if (i > 0) pdf.addPage();
+                    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+                    
+                    offscreen.innerHTML = '';
+                }
+
+                pdf.save(`認知教案_高品質版_${new Date().getTime()}.pdf`);
+            } catch (error) {
+                console.error("PDF generation failed:", error);
+                alert("下載失敗，建議更換瀏覽器或使用列印功能。");
+            } finally {
+                overlay.style.display = 'none';
+            }
+        }
+
+        window.onload = initData;
+    </script>
+</body>
+</html>
