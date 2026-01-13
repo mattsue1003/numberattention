@@ -36,13 +36,13 @@
             border-radius: 2px;
         }
 
-        /* 標題區域：確保不換行 */
+        /* 試卷標題區域：確保不換行 */
         .header-title {
             font-size: 30pt;
             font-weight: 900;
             color: #000;
             line-height: 1.2;
-            white-space: nowrap; /* 強制不換行 */
+            white-space: nowrap; 
             margin-bottom: 8px;
         }
 
@@ -208,8 +208,8 @@
         <div class="max-w-6xl mx-auto flex flex-col gap-4">
             <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
                 <div class="flex items-center">
-                    <!-- 移除 🧠 標題不跳行 -->
-                    <h1 class="text-xl md:text-2xl font-black text-gray-800 tracking-tight whitespace-nowrap">形狀數字認知教案產生器</h1>
+                    <!-- 上方功能標題列改為：形狀數字認知教案產生器 -->
+                    <h1 class="text-xl md:text-2xl font-black text-gray-800 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">形狀數字認知教案產生器</h1>
                 </div>
 
                 <div class="flex flex-wrap justify-center items-center gap-4">
@@ -304,8 +304,8 @@
             return `
                 <div class="a4-page">
                     <div class="flex justify-between items-end border-b-[6px] border-black pb-2 mb-4">
-                        <div class="flex-grow overflow-hidden">
-                            <div class="header-title tracking-tight whitespace-nowrap">形狀數字認知教案產生器</div>
+                        <div class="flex-grow overflow-hidden text-ellipsis">
+                            <div class="header-title tracking-tight whitespace-nowrap">形狀數字轉換訓練</div>
                             <div class="header-subtitle whitespace-nowrap">增強大腦反應力與專注力</div>
                         </div>
                         <div class="text-right text-lg font-bold space-y-1 mb-1 shrink-0 ml-4 whitespace-nowrap">
